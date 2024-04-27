@@ -11,17 +11,17 @@ import {
 
 export type ListCrdtMessage<T> =
   | {
-      type: "set";
-      pos: Position;
-      value: T;
-      meta?: BunchMeta;
+      readonly type: "set";
+      readonly pos: Position;
+      readonly value: T;
+      readonly meta?: BunchMeta;
     }
-  | { type: "delete"; pos: Position };
+  | { readonly type: "delete"; readonly pos: Position };
 
 export type ListCrdtSavedState<T> = {
-  order: OrderSavedState;
-  list: ListSavedState<T>;
-  seen: OutlineSavedState;
+  readonly order: OrderSavedState;
+  readonly list: ListSavedState<T>;
+  readonly seen: OutlineSavedState;
 };
 
 /**

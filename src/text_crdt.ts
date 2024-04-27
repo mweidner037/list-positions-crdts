@@ -11,17 +11,17 @@ import {
 
 export type TextCrdtMessage =
   | {
-      type: "set";
-      pos: Position;
-      char: string;
-      meta?: BunchMeta;
+      readonly type: "set";
+      readonly pos: Position;
+      readonly char: string;
+      readonly meta?: BunchMeta;
     }
-  | { type: "delete"; pos: Position };
+  | { readonly type: "delete"; readonly pos: Position };
 
 export type TextCrdtSavedState = {
-  order: OrderSavedState;
-  text: TextSavedState;
-  seen: OutlineSavedState;
+  readonly order: OrderSavedState;
+  readonly text: TextSavedState;
+  readonly seen: OutlineSavedState;
 };
 
 /**
