@@ -26,7 +26,6 @@ export type TextCrdtSavedState = {
 
 /**
  * A traditional op-based/state-based text CRDT implemented on top of list-positions.
- * Based on from https://github.com/mweidner037/list-positions/blob/master/benchmarks/internal/text_crdt.ts
  *
  * send/receive work on general networks (they build in exactly-once partial-order delivery),
  * and save/load work as state-based merging.
@@ -37,8 +36,7 @@ export type TextCrdtSavedState = {
  * messages.
  */
 export class TextCRDT {
-  /** When accessing externally, only query. */
-  readonly text: Text;
+  private readonly text: Text;
   /**
    * A set of all Positions we've ever seen, whether currently present or deleted.
    * Used for state-based merging and handling reordered messages.
@@ -58,6 +56,26 @@ export class TextCRDT {
     this.text = new Text();
     this.seen = new PositionSet();
     this.pending = new Map();
+  }
+
+  getAt(index: number): string {
+    return this.text.getAt(index);
+  }
+
+  [Symbol.iterator](): IterableIterator<string> {
+    return this.text.values();
+  }
+
+  values(): IterableIterator<string> {
+    return this.text.values();
+  }
+
+  slice(start?: number, end?: number): string {
+    return this.text.slice(start, end);
+  }
+
+  toString(): string {
+    return this.text.toString();
   }
 
   insertAt(index: number, char: string): void {

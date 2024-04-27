@@ -26,7 +26,6 @@ export type ListCrdtSavedState<T> = {
 
 /**
  * A traditional op-based/state-based list CRDT implemented on top of list-positions.
- * Based on https://github.com/mweidner037/list-positions/blob/master/benchmarks/internal/list_crdt.ts
  *
  * send/receive work on general networks (they build in exactly-once partial-order delivery),
  * and save/load work as state-based merging.
@@ -37,8 +36,7 @@ export type ListCrdtSavedState<T> = {
  * messages.
  */
 export class ListCRDT<T> {
-  /** When accessing externally, only query. */
-  readonly list: List<T>;
+  private readonly list: List<T>;
   /**
    * A set of all Positions we've ever seen, whether currently present or deleted.
    * Used for state-based merging and handling reordered messages.
@@ -58,6 +56,22 @@ export class ListCRDT<T> {
     this.list = new List();
     this.seen = new PositionSet();
     this.pending = new Map();
+  }
+
+  getAt(index: number): T {
+    return this.list.getAt(index);
+  }
+
+  [Symbol.iterator](): IterableIterator<T> {
+    return this.list.values();
+  }
+
+  values(): IterableIterator<T> {
+    return this.list.values();
+  }
+
+  slice(start?: number, end?: number): T[] {
+    return this.list.slice(start, end);
   }
 
   insertAt(index: number, value: T): void {
@@ -154,7 +168,7 @@ export class ListCRDT<T> {
   }
 
   save(): ListCrdtSavedState<T> {
-   return {
+    return {
       order: this.list.order.save(),
       list: this.list.save(),
       seen: this.seen.save(),
