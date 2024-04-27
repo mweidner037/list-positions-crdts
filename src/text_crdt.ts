@@ -35,7 +35,7 @@ export type TextCrdtSavedState = {
  * and manually manages metadata; in particular, it must buffer certain out-of-order
  * messages.
  */
-export class TextCRDT {
+export class TextCrdt {
   private readonly text: Text;
   /**
    * A set of all Positions we've ever seen, whether currently present or deleted.
@@ -81,8 +81,12 @@ export class TextCRDT {
   insertAt(index: number, char: string): void {
     const [pos, newMeta] = this.text.insertAt(index, char);
     this.seen.add(pos);
-    const message: TextCrdtMessage = { type: "set", pos, char };
-    if (newMeta !== null) message.meta = newMeta;
+    const message: TextCrdtMessage = {
+      type: "set",
+      pos,
+      char,
+      ...(newMeta ? { meta: newMeta } : {}),
+    };
     this.send(message);
   }
 

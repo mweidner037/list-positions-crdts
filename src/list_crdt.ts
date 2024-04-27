@@ -35,7 +35,7 @@ export type ListCrdtSavedState<T> = {
  * and manually manages metadata; in particular, it must buffer certain out-of-order
  * messages.
  */
-export class ListCRDT<T> {
+export class ListCrdt<T> {
   private readonly list: List<T>;
   /**
    * A set of all Positions we've ever seen, whether currently present or deleted.
@@ -77,8 +77,12 @@ export class ListCRDT<T> {
   insertAt(index: number, value: T): void {
     const [pos, newMeta] = this.list.insertAt(index, value);
     this.seen.add(pos);
-    const message: ListCrdtMessage<T> = { type: "set", pos, value };
-    if (newMeta !== null) message.meta = newMeta;
+    const message: ListCrdtMessage<T> = {
+      type: "set",
+      pos,
+      value,
+      ...(newMeta ? { meta: newMeta } : {}),
+    };
     this.send(message);
   }
 
