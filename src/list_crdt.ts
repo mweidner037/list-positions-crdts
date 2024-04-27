@@ -12,11 +12,12 @@ import {
 export type ListCrdtMessage<T> =
   | {
       readonly type: "set";
-      readonly pos: Position;
-      readonly value: T;
+      readonly startPos: Position;
+      readonly values: T[];
       readonly meta?: BunchMeta;
     }
-  | { readonly type: "delete"; readonly pos: Position };
+  // OPT: Use items instead of Position[].
+  | { readonly type: "delete"; readonly poss: Position[] };
 
 export type ListCrdtSavedState<T> = {
   readonly order: OrderSavedState;
@@ -74,56 +75,59 @@ export class ListCrdt<T> {
     return this.list.slice(start, end);
   }
 
-  insertAt(index: number, value: T): void {
-    const [pos, newMeta] = this.list.insertAt(index, value);
+  insertAt(index: number, ...values: T[]): void {
+    const [pos, newMeta] = this.list.insertAt(index, ...values);
     this.seen.add(pos);
     const message: ListCrdtMessage<T> = {
       type: "set",
-      pos,
-      value,
+      startPos: pos,
+      values,
       ...(newMeta ? { meta: newMeta } : {}),
     };
     this.send(message);
   }
 
-  deleteAt(index: number): void {
-    const pos = this.list.positionAt(index);
-    this.list.delete(pos);
-    const message: ListCrdtMessage<T> = { type: "delete", pos };
+  deleteAt(index: number, count = 1): void {
+    const poss = [...this.list.positions(index, index + count)];
+    for (const pos of poss) this.list.delete(pos);
+    const message: ListCrdtMessage<T> = { type: "delete", poss };
     this.send(message);
   }
 
   receive(message: ListCrdtMessage<T>): void {
     // TODO: test dedupe & partial ordering.
-    const bunchID = message.pos.bunchID;
 
     switch (message.type) {
       case "delete":
-        // Mark the position as seen immediately, even if we don't have metadata
-        // for its bunch yet. Okay because this.seen is a PositionSet instead of an Outline.
-        this.seen.add(message.pos);
-        // Delete the position if present.
-        // If the bunch is unknown, it's definitely not present, and we
-        // should skip calling list.has to avoid a "Missing metadata" error.
-        if (
-          this.list.order.getNode(bunchID) !== undefined &&
-          this.list.has(message.pos)
-        ) {
-          // For a hypothetical event, compute the index.
-          void this.list.indexOfPosition(message.pos);
+        for (const pos of message.poss) {
+          // Mark the position as seen immediately, even if we don't have metadata
+          // for its bunch yet. Okay because this.seen is a PositionSet instead of an Outline.
+          this.seen.add(pos);
+          // Delete the position if present.
+          // If the bunch is unknown, it's definitely not present, and we
+          // should skip calling list.has to avoid a "Missing metadata" error.
+          if (
+            this.list.order.getNode(pos.bunchID) !== undefined &&
+            this.list.has(pos)
+          ) {
+            // For a hypothetical event, compute the index.
+            // TODO: events
+            void this.list.indexOfPosition(pos);
 
-          this.list.delete(message.pos);
+            this.list.delete(pos);
+          }
         }
         break;
-      case "set":
+      case "set": {
         // This check is okay even if we don't have metadata for pos's bunch yet,
         // because this.seen is a PositionSet instead of an Outline.
-        if (this.seen.has(message.pos)) {
+        if (this.seen.has(message.startPos)) {
           // The position has already been seen (inserted, inserted & deleted, or
           // deleted by an out-of-order message). So don't need to insert it again.
           return;
         }
 
+        const bunchID = message.startPos.bunchID;
         if (message.meta) {
           const parentID = message.meta.parentID;
           if (this.list.order.getNode(parentID) === undefined) {
@@ -142,11 +146,12 @@ export class ListCrdt<T> {
         }
 
         // At this point, BunchMeta dependencies are satisfied. Process the message.
-        this.list.set(message.pos, message.value);
+        this.list.set(message.startPos, ...message.values);
         // Add to seen even before it's deleted, to reduce sparse-array fragmentation.
-        this.seen.add(message.pos);
-        // For a hypothetical event, compute the index.
-        void this.list.indexOfPosition(message.pos);
+        this.seen.add(message.startPos, message.values.length);
+        // TODO: test bulk edits
+        // For a hypothetical event, compute the index. TODO: inaccurate for OoO bulk edits.
+        void this.list.indexOfPosition(message.startPos);
 
         if (message.meta) {
           // The meta may have unblocked pending messages.
@@ -159,6 +164,7 @@ export class ListCrdt<T> {
           }
         }
         break;
+      }
     }
   }
 
