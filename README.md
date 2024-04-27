@@ -1,25 +1,21 @@
-# Template Typescript lib
+# @list-positions/crdts
 
-Template for a TypeScript library meant to be published on npm.
+A collection of CRDTs built on top of the [list-positions](https://github.com/mweidner037/list-positions#readme) library.
 
-Setup and package versions should be current as of Feb 19 2023.
+list-positions provides local data structures that implement the core of a list/text [CRDT](https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type) but with a different API. This package wraps those data structures to create more traditional CRDTs.
 
-## Files
+Specifically, this package's classes are all hybrid op-based/state-based CRDTs that tolerate duplicated and out-of-order messages (in op-based usage) and support state-based merging (state-based usage).
 
-- `src/`: Source folder. Entry point is `index.ts`. Built to `build/esm` and `build/commonjs`.
-  - Node.js uses the CommonJS build: we point to it with `main` in `package.json` and **don't** set `type: "module"`. That way, we don't have to change any file extensions to `.mjs` or `.cjs`, and we don't have to add any explicit extensions to TypeScript imports (`require()` will try adding the `.js` extension automatically). Thus we don't need any post-`tsc` build steps.
-- `test/`: Test folder. Runs using mocha.
+Classes:
 
-## Commands
+- `ListCrdt<T>`
+- `TextCrdt`
 
-- Build with `npm run build`.
-- Test, lint, etc. with `npm run test`. Use `npm run coverage` for code coverage (opens in browser).
-- Preview typedoc with `npm run docs`. (Open `docs/index.html` in a browser.)
-- Publish with `npm publish`.
+Types:
 
-## TODO
+- `ListCrdtMessage<T>`, `TextCrdtMessage`: Op-based message types.
+- `ListCrdtSavedState<T>`, `TextCrdtSavedState`: State-based state types. Can also be used for ordinary saving and loading.
 
-- Delete `.git`, then setup your own Git repo.
-- Search for TODO.
-- Write your library in `src/`.
-- Replace this README.
+The CRDTs use JSON objects for their op-based messages and state-based states. You can serialize these with `JSON.stringify` (possibly GZIP'd) or design a more efficient binary format if you like.
+
+This package is mostly meant as an example of how to use list-positions, not a production CRDT library. So take a look at the [source code](./src/).

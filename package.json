@@ -1,19 +1,21 @@
 {
-  "name": "TODO",
+  "name": "@list-positions/crdts",
   "version": "0.1.0",
-  "description": "TODO",
+  "description": "CRDTs built on top of list-positions",
   "author": "Matthew Weidner",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/mweidner037/TODO/issues"
+    "url": "https://github.com/mweidner037/list-positions-crdts/issues"
   },
-  "homepage": "https://github.com/mweidner037/TODO/#readme",
+  "homepage": "https://github.com/mweidner037/list-positions-crdts#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mweidner037/TODO.git"
+    "url": "git+https://github.com/mweidner037/list-positions-crdts.git"
   },
   "keywords": [
-    "TODO"
+    "CRDT",
+    "collaboration",
+    "text editing"
   ],
   "main": "build/commonjs/index.js",
   "browser": "build/esm/index.js",
