@@ -25,6 +25,8 @@ export type TextCrdtSavedState = {
   readonly seen: OutlineSavedState;
 };
 
+// TODO: events
+
 /**
  * A traditional op-based/state-based text CRDT implemented on top of list-positions.
  *
@@ -113,10 +115,6 @@ export class TextCrdt {
             this.text.order.getNode(pos.bunchID) !== undefined &&
             this.text.has(pos)
           ) {
-            // For a hypothetical event, compute the index.
-            // TODO: events
-            void this.text.indexOfPosition(pos);
-
             this.text.delete(pos);
           }
         }
@@ -153,9 +151,6 @@ export class TextCrdt {
         // Add to seen even before it's deleted, to reduce sparse-array fragmentation.
         this.seen.add(message.startPos, message.chars.length);
         // TODO: test bulk edits
-        // For a hypothetical event, compute the index. TODO: inaccurate for OoO bulk edits.
-        // For a hypothetical event, compute the index.
-        void this.text.indexOfPosition(message.startPos);
 
         if (message.meta) {
           // The meta may have unblocked pending messages.
@@ -198,7 +193,6 @@ export class TextCrdt {
       this.seen.load(savedState.seen);
     } else {
       // TODO: benchmark merging.
-      // TODO: events.
       const otherText = new Text();
       const otherSeen = new Outline(otherText.order);
       otherText.order.load(savedState.order);

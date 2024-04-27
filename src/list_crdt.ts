@@ -25,6 +25,8 @@ export type ListCrdtSavedState<T> = {
   readonly seen: OutlineSavedState;
 };
 
+// TODO: events
+
 /**
  * A traditional op-based/state-based list CRDT implemented on top of list-positions.
  *
@@ -110,10 +112,6 @@ export class ListCrdt<T> {
             this.list.order.getNode(pos.bunchID) !== undefined &&
             this.list.has(pos)
           ) {
-            // For a hypothetical event, compute the index.
-            // TODO: events
-            void this.list.indexOfPosition(pos);
-
             this.list.delete(pos);
           }
         }
@@ -150,8 +148,6 @@ export class ListCrdt<T> {
         // Add to seen even before it's deleted, to reduce sparse-array fragmentation.
         this.seen.add(message.startPos, message.values.length);
         // TODO: test bulk edits
-        // For a hypothetical event, compute the index. TODO: inaccurate for OoO bulk edits.
-        void this.list.indexOfPosition(message.startPos);
 
         if (message.meta) {
           // The meta may have unblocked pending messages.
@@ -194,7 +190,6 @@ export class ListCrdt<T> {
       this.seen.load(savedState.seen);
     } else {
       // TODO: benchmark merging.
-      // TODO: events.
       const otherList = new List<T>();
       const otherSeen = new Outline(otherList.order);
       otherList.order.load(savedState.order);
