@@ -1,6 +1,6 @@
 {
   "name": "@list-positions/crdts",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "CRDTs built on top of list-positions",
   "author": "Matthew Weidner",
   "license": "MIT",
