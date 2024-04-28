@@ -7,6 +7,7 @@ import {
   OutlineSavedState,
   Position,
   PositionSet,
+  expandPositions,
 } from "list-positions";
 
 export type ListCrdtMessage<T> =
@@ -23,6 +24,7 @@ export type ListCrdtSavedState<T> = {
   readonly order: OrderSavedState;
   readonly list: ListSavedState<T>;
   readonly seen: OutlineSavedState;
+  readonly buffer: ListCrdtMessage<T>[];
 };
 
 // TODO: events
@@ -47,6 +49,9 @@ export class ListCrdt<T> {
    * We use PositionSet here because we don't care about the list order. If you did,
    * you could use Outline instead, with the same Order as this.list
    * (`this.seen = new Outline(this.order);`).
+   *
+   * Tracking all seen Positions (instead of just deleted ones) reduces
+   * internal sparse array fragmentation, leading to smaller memory and saved state sizes.
    */
   private readonly seen: PositionSet;
   /**
@@ -115,14 +120,6 @@ export class ListCrdt<T> {
         }
         break;
       case "set": {
-        // This check is okay even if we don't have metadata for pos's bunch yet,
-        // because this.seen is a PositionSet instead of an Outline.
-        if (this.seen.has(message.startPos)) {
-          // The position has already been seen (inserted, inserted & deleted, or
-          // deleted by an out-of-order message). So don't need to insert it again.
-          return;
-        }
-
         const bunchID = message.startPos.bunchID;
         if (message.meta) {
           const parentID = message.meta.parentID;
@@ -132,18 +129,34 @@ export class ListCrdt<T> {
             this.addToPending(parentID, message);
             return;
           } else this.list.order.addMetas([message.meta]);
+        }
 
-          if (this.list.order.getNode(bunchID) === undefined) {
-            // The message can't be processed yet because its bunch is unknown.
-            // Add it to pending.
-            this.addToPending(bunchID, message);
-            return;
-          }
+        if (this.list.order.getNode(bunchID) === undefined) {
+          // The message can't be processed yet because its bunch is unknown.
+          // Add it to pending.
+          this.addToPending(bunchID, message);
+          return;
         }
 
         // At this point, BunchMeta dependencies are satisfied. Process the message.
-        this.list.set(message.startPos, ...message.values);
-        // Add to seen even before it's deleted, to reduce sparse-array fragmentation.
+
+        // Note that the insertion may have already been (partly) seen, due to
+        // redundant or out-of-order messages;
+        // only unseen positions need to be inserted.
+        const poss = expandPositions(message.startPos, message.values.length);
+        const toInsert: number[] = [];
+        for (let i = 0; i < poss.length; i++) {
+          if (!this.seen.has(poss[i])) toInsert.push(i);
+        }
+        if (toInsert.length === message.values.length) {
+          // All need inserting (normal case).
+          this.list.set(message.startPos, ...message.values);
+        } else {
+          for (const i of toInsert) {
+            this.list.set(poss[i], message.values[i]);
+          }
+        }
+
         this.seen.add(message.startPos, message.values.length);
 
         if (message.meta) {
@@ -171,10 +184,15 @@ export class ListCrdt<T> {
   }
 
   save(): ListCrdtSavedState<T> {
+    const buffer: ListCrdtMessage<T>[] = [];
+    for (const messageSet of this.pending.values()) {
+      buffer.push(...messageSet);
+    }
     return {
       order: this.list.order.save(),
       list: this.list.save(),
       seen: this.seen.save(),
+      buffer,
     };
   }
 
@@ -207,6 +225,11 @@ export class ListCrdt<T> {
           if (!otherList.has(pos)) this.list.delete(pos);
         }
       }
+    }
+
+    // In either case, process buffer by re-delivering all of its messages.
+    for (const message of savedState.buffer) {
+      this.receive(message);
     }
   }
 }

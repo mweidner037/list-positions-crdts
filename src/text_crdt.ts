@@ -153,7 +153,7 @@ export class TextCrdt {
           if (!this.seen.has(poss[i])) toInsert.push(i);
         }
         if (toInsert.length === message.chars.length) {
-          // All need inserting.
+          // All need inserting (normal case).
           this.text.set(message.startPos, message.chars);
         } else {
           for (const i of toInsert) {
