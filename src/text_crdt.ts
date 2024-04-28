@@ -17,8 +17,10 @@ export type TextCrdtMessage =
       readonly chars: string;
       readonly meta?: BunchMeta;
     }
-  // OPT: Use items instead of Position[].
-  | { readonly type: "delete"; readonly poss: Position[] };
+  | {
+      readonly type: "delete";
+      readonly items: [startPos: Position, count: number][];
+    };
 
 export type TextCrdtSavedState = {
   readonly order: OrderSavedState;
@@ -87,6 +89,8 @@ export class TextCrdt {
   }
 
   insertAt(index: number, chars: string): void {
+    if (chars.length === 0) return;
+
     const [pos, newMeta] = this.text.insertAt(index, chars);
     this.seen.add(pos, chars.length);
     const message: TextCrdtMessage = {
@@ -99,27 +103,36 @@ export class TextCrdt {
   }
 
   deleteAt(index: number, count = 1): void {
-    const poss = [...this.text.positions(index, index + count)];
-    for (const pos of poss) this.text.delete(pos);
-    const message: TextCrdtMessage = { type: "delete", poss };
-    this.send(message);
+    if (count === 0) return;
+
+    const items: [startPos: Position, count: number][] = [];
+    for (const [startPos, chars] of this.text.items(index, index + count)) {
+      items.push([startPos, chars.length]);
+    }
+    for (const [startPos, itemCount] of items) {
+      this.text.delete(startPos, itemCount);
+    }
+    this.send({ type: "delete", items });
   }
 
   receive(message: TextCrdtMessage): void {
     switch (message.type) {
       case "delete":
-        for (const pos of message.poss) {
-          // Mark the position as seen immediately, even if we don't have metadata
+        for (const [startPos, count] of message.items) {
+          // Mark each position as seen immediately, even if we don't have metadata
           // for its bunch yet. Okay because this.seen is a PositionSet instead of an Outline.
-          this.seen.add(pos);
-          // Delete the position if present.
+          this.seen.add(startPos, count);
+
+          // Delete the positions if present.
           // If the bunch is unknown, it's definitely not present, and we
           // should skip calling text.has to avoid a "Missing metadata" error.
-          if (
-            this.text.order.getNode(pos.bunchID) !== undefined &&
-            this.text.has(pos)
-          ) {
-            this.text.delete(pos);
+          if (this.text.order.getNode(startPos.bunchID) !== undefined) {
+            // For future events, we may need to delete individually. Do it now for consistency.
+            for (const pos of expandPositions(startPos, count)) {
+              if (this.text.has(pos)) {
+                this.text.delete(pos);
+              }
+            }
           }
         }
         break;

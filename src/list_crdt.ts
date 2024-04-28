@@ -17,8 +17,10 @@ export type ListCrdtMessage<T> =
       readonly values: T[];
       readonly meta?: BunchMeta;
     }
-  // OPT: Use items instead of Position[].
-  | { readonly type: "delete"; readonly poss: Position[] };
+  | {
+      readonly type: "delete";
+      readonly items: [startPos: Position, count: number][];
+    };
 
 export type ListCrdtSavedState<T> = {
   readonly order: OrderSavedState;
@@ -83,6 +85,8 @@ export class ListCrdt<T> {
   }
 
   insertAt(index: number, ...values: T[]): void {
+    if (values.length === 0) return;
+
     const [pos, newMeta] = this.list.insertAt(index, ...values);
     this.seen.add(pos, values.length);
     const message: ListCrdtMessage<T> = {
@@ -95,27 +99,36 @@ export class ListCrdt<T> {
   }
 
   deleteAt(index: number, count = 1): void {
-    const poss = [...this.list.positions(index, index + count)];
-    for (const pos of poss) this.list.delete(pos);
-    const message: ListCrdtMessage<T> = { type: "delete", poss };
-    this.send(message);
+    if (count === 0) return;
+
+    const items: [startPos: Position, count: number][] = [];
+    for (const [startPos, values] of this.list.items(index, index + count)) {
+      items.push([startPos, values.length]);
+    }
+    for (const [startPos, itemCount] of items) {
+      this.list.delete(startPos, itemCount);
+    }
+    this.send({ type: "delete", items });
   }
 
   receive(message: ListCrdtMessage<T>): void {
     switch (message.type) {
       case "delete":
-        for (const pos of message.poss) {
-          // Mark the position as seen immediately, even if we don't have metadata
+        for (const [startPos, count] of message.items) {
+          // Mark each position as seen immediately, even if we don't have metadata
           // for its bunch yet. Okay because this.seen is a PositionSet instead of an Outline.
-          this.seen.add(pos);
-          // Delete the position if present.
+          this.seen.add(startPos, count);
+
+          // Delete the positions if present.
           // If the bunch is unknown, it's definitely not present, and we
-          // should skip calling list.has to avoid a "Missing metadata" error.
-          if (
-            this.list.order.getNode(pos.bunchID) !== undefined &&
-            this.list.has(pos)
-          ) {
-            this.list.delete(pos);
+          // should skip calling text.has to avoid a "Missing metadata" error.
+          if (this.list.order.getNode(startPos.bunchID) !== undefined) {
+            // For future events, we may need to delete individually. Do it now for consistency.
+            for (const pos of expandPositions(startPos, count)) {
+              if (this.list.has(pos)) {
+                this.list.delete(pos);
+              }
+            }
           }
         }
         break;
