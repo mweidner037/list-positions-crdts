@@ -106,9 +106,15 @@ export class TextCrdt {
     if (count === 0) return;
 
     const items: [startPos: Position, count: number][] = [];
-    for (const [startPos, chars] of this.text.items(index, index + count)) {
-      items.push([startPos, chars.length]);
+    if (count === 1) {
+      // Common case: use positionAt, which is faster than items.
+      items.push([this.text.positionAt(index), 1]);
+    } else {
+      for (const [startPos, chars] of this.text.items(index, index + count)) {
+        items.push([startPos, chars.length]);
+      }
     }
+
     for (const [startPos, itemCount] of items) {
       this.text.delete(startPos, itemCount);
     }

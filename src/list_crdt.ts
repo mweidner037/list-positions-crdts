@@ -102,9 +102,15 @@ export class ListCrdt<T> {
     if (count === 0) return;
 
     const items: [startPos: Position, count: number][] = [];
-    for (const [startPos, values] of this.list.items(index, index + count)) {
-      items.push([startPos, values.length]);
+    if (count === 1) {
+      // Common case: use positionAt, which is faster than items.
+      items.push([this.list.positionAt(index), 1]);
+    } else {
+      for (const [startPos, values] of this.list.items(index, index + count)) {
+        items.push([startPos, values.length]);
+      }
     }
+
     for (const [startPos, itemCount] of items) {
       this.list.delete(startPos, itemCount);
     }
