@@ -79,7 +79,7 @@ export class ListCrdt<T> {
 
   insertAt(index: number, ...values: T[]): void {
     const [pos, newMeta] = this.list.insertAt(index, ...values);
-    this.seen.add(pos);
+    this.seen.add(pos, values.length);
     const message: ListCrdtMessage<T> = {
       type: "set",
       startPos: pos,

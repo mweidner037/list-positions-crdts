@@ -129,7 +129,7 @@ describe("TextCrdt", () => {
     assert.strictEqual(alice.toString(), "abde");
 
     bob.receive(m2);
-    assert.strictEqual(bob.toString(), "");
+    assert.strictEqual(bob.toString(), "a");
 
     // Should remember that m2 was deleted.
     bob.receive(m1);
@@ -153,72 +153,73 @@ describe("TextCrdt", () => {
   });
 
   it("buffers missing deps", () => {
-    // Create a chain of inserts in the tree.
+    // Create a chain of bunches in the tree.
     const ms: TextCrdtMessage[] = [];
     for (let i = 0; i < 10; i++) {
-      alice.insertAt(i, `${i}`);
+      alice.insertAt(0, `${i}`);
       ms.push(getAliceMessage());
     }
-    assert.strictEqual(alice.toString(), "0123456789");
+    assert.strictEqual(alice.toString(), "9876543210");
 
     // Deliver then out-of-order to Bob. Check that inserts are unblocked
     // by dependents' delivery.
     bob.receive(ms[1]);
     assert.strictEqual(bob.toString(), "");
     bob.receive(ms[0]);
-    assert.strictEqual(bob.toString(), "01");
+    assert.strictEqual(bob.toString(), "10");
 
     bob.receive(ms[4]);
-    assert.strictEqual(bob.toString(), "01");
+    assert.strictEqual(bob.toString(), "10");
     bob.receive(ms[3]);
-    assert.strictEqual(bob.toString(), "01");
+    assert.strictEqual(bob.toString(), "10");
     bob.receive(ms[2]);
-    assert.strictEqual(bob.toString(), "0123");
+    assert.strictEqual(bob.toString(), "43210");
 
     bob.receive(ms[9]);
-    assert.strictEqual(bob.toString(), "0123");
+    assert.strictEqual(bob.toString(), "43210");
     bob.receive(ms[8]);
-    assert.strictEqual(bob.toString(), "0123");
+    assert.strictEqual(bob.toString(), "43210");
     bob.receive(ms[6]);
-    assert.strictEqual(bob.toString(), "0123");
+    assert.strictEqual(bob.toString(), "43210");
     bob.receive(ms[5]);
-    assert.strictEqual(bob.toString(), "012345");
+    assert.strictEqual(bob.toString(), "6543210");
     bob.receive(ms[7]);
-    assert.strictEqual(bob.toString(), "0123456789");
+    assert.strictEqual(bob.toString(), "9876543210");
   });
 
   it("buffers missing deps - bulk", () => {
-    // Create a chain of inserts in the tree.
+    // Create a chain of bunches in the tree.
     const ms: TextCrdtMessage[] = [];
     for (let i = 0; i < 10; i++) {
-      alice.insertAt(i, `${i}${i}${i}`);
+      alice.insertAt(0, `${i}${i}${i}`);
+      ms.push(getAliceMessage());
     }
-    assert.strictEqual(alice.toString(), "000111222333444555666777888999");
+    assert.strictEqual(alice.toString(), "999888777666555444333222111000");
 
     // Deliver then out-of-order to Bob. Check that inserts are unblocked
     // by dependents' delivery.
     bob.receive(ms[1]);
     assert.strictEqual(bob.toString(), "");
     bob.receive(ms[0]);
-    assert.strictEqual(bob.toString(), "000111");
+    assert.strictEqual(bob.toString(), "111000");
 
     bob.receive(ms[4]);
-    assert.strictEqual(bob.toString(), "000111");
+    assert.strictEqual(bob.toString(), "111000");
     bob.receive(ms[3]);
-    assert.strictEqual(bob.toString(), "000111");
+    assert.strictEqual(bob.toString(), "111000");
     bob.receive(ms[2]);
-    assert.strictEqual(bob.toString(), "000111222333");
+    assert.strictEqual(bob.toString(), "444333222111000");
 
     bob.receive(ms[9]);
-    assert.strictEqual(bob.toString(), "000111222333");
+    assert.strictEqual(bob.toString(), "444333222111000");
     bob.receive(ms[8]);
-    assert.strictEqual(bob.toString(), "000111222333");
+    assert.strictEqual(bob.toString(), "444333222111000");
     bob.receive(ms[6]);
-    assert.strictEqual(bob.toString(), "000111222333");
+    assert.strictEqual(bob.toString(), "444333222111000");
     bob.receive(ms[5]);
-    assert.strictEqual(bob.toString(), "000111222333444555");
+    assert.strictEqual(bob.toString(), "666555444333222111000");
     bob.receive(ms[7]);
-    assert.strictEqual(bob.toString(), "000111222333444555666777888999");
+    assert.strictEqual(bob.toString(), "999888777666555444333222111000");
   });
 
   it("skips redundant messages after reload", () => {
@@ -236,7 +237,11 @@ describe("TextCrdt", () => {
     bob.load(alice.save());
     assert.strictEqual(bob.toString(), "de");
 
-    // The messages should be redundant.
+    // The messages should be redundant, including for the reloaded state.
+    for (const m of [m1, m2, m3, m4]) {
+      alice.receive(m);
+      assert.strictEqual(alice.toString(), "de");
+    }
     for (const m of [m1, m2, m3, m4]) {
       bob.receive(m);
       assert.strictEqual(bob.toString(), "de");

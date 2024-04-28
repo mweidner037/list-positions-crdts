@@ -7,6 +7,7 @@ import {
   PositionSet,
   Text,
   TextSavedState,
+  expandPositions,
 } from "list-positions";
 
 export type TextCrdtMessage =
@@ -23,6 +24,7 @@ export type TextCrdtSavedState = {
   readonly order: OrderSavedState;
   readonly text: TextSavedState;
   readonly seen: OutlineSavedState;
+  readonly buffer: TextCrdtMessage[];
 };
 
 // TODO: events
@@ -47,6 +49,9 @@ export class TextCrdt {
    * We use PositionSet here because we don't care about the list order. If you did,
    * you could use Outline instead, with the same Order as this.list
    * (`this.seen = new Outline(this.order);`).
+   *
+   * Tracking all seen Positions (instead of just deleted ones) reduces
+   * internal sparse array fragmentation, leading to smaller memory and saved state sizes.
    */
   private readonly seen: PositionSet;
   /**
@@ -83,7 +88,7 @@ export class TextCrdt {
 
   insertAt(index: number, chars: string): void {
     const [pos, newMeta] = this.text.insertAt(index, chars);
-    this.seen.add(pos);
+    this.seen.add(pos, chars.length);
     const message: TextCrdtMessage = {
       type: "set",
       startPos: pos,
@@ -119,14 +124,6 @@ export class TextCrdt {
         }
         break;
       case "set": {
-        // This check is okay even if we don't have metadata for pos's bunch yet,
-        // because this.seen is a PositionSet instead of an Outline.
-        if (this.seen.has(message.startPos)) {
-          // The position has already been seen (inserted, inserted & deleted, or
-          // deleted by an out-of-order message). So don't need to insert it again.
-          return;
-        }
-
         const bunchID = message.startPos.bunchID;
         if (message.meta) {
           const parentID = message.meta.parentID;
@@ -136,18 +133,34 @@ export class TextCrdt {
             this.addToPending(parentID, message);
             return;
           } else this.text.order.addMetas([message.meta]);
+        }
 
-          if (this.text.order.getNode(bunchID) === undefined) {
-            // The message can't be processed yet because its bunch is unknown.
-            // Add it to pending.
-            this.addToPending(bunchID, message);
-            return;
-          }
+        if (this.text.order.getNode(bunchID) === undefined) {
+          // The message can't be processed yet because its bunch is unknown.
+          // Add it to pending.
+          this.addToPending(bunchID, message);
+          return;
         }
 
         // At this point, BunchMeta dependencies are satisfied. Process the message.
-        this.text.set(message.startPos, message.chars);
-        // Add to seen even before it's deleted, to reduce sparse-array fragmentation.
+
+        // Note that the insertion may have already been (partly) seen, due to
+        // redundant or out-of-order messages;
+        // only unseen positions need to be inserted.
+        const poss = expandPositions(message.startPos, message.chars.length);
+        const toInsert: number[] = [];
+        for (let i = 0; i < poss.length; i++) {
+          if (!this.seen.has(poss[i])) toInsert.push(i);
+        }
+        if (toInsert.length === message.chars.length) {
+          // All need inserting.
+          this.text.set(message.startPos, message.chars);
+        } else {
+          for (const i of toInsert) {
+            this.text.set(poss[i], message.chars[i]);
+          }
+        }
+
         this.seen.add(message.startPos, message.chars.length);
 
         if (message.meta) {
@@ -175,10 +188,15 @@ export class TextCrdt {
   }
 
   save(): TextCrdtSavedState {
+    const buffer: TextCrdtMessage[] = [];
+    for (const messageSet of this.pending.values()) {
+      buffer.push(...messageSet);
+    }
     return {
       order: this.text.order.save(),
       text: this.text.save(),
       seen: this.seen.save(),
+      buffer,
     };
   }
 
@@ -211,6 +229,11 @@ export class TextCrdt {
           if (!otherText.has(pos)) this.text.delete(pos);
         }
       }
+    }
+
+    // In either case, process buffer by re-delivering all of its messages.
+    for (const message of savedState.buffer) {
+      this.receive(message);
     }
   }
 }
