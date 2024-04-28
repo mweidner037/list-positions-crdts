@@ -97,8 +97,6 @@ export class ListCrdt<T> {
   }
 
   receive(message: ListCrdtMessage<T>): void {
-    // TODO: test dedupe & partial ordering.
-
     switch (message.type) {
       case "delete":
         for (const pos of message.poss) {
@@ -147,7 +145,6 @@ export class ListCrdt<T> {
         this.list.set(message.startPos, ...message.values);
         // Add to seen even before it's deleted, to reduce sparse-array fragmentation.
         this.seen.add(message.startPos, message.values.length);
-        // TODO: test bulk edits
 
         if (message.meta) {
           // The meta may have unblocked pending messages.

@@ -101,7 +101,6 @@ export class TextCrdt {
   }
 
   receive(message: TextCrdtMessage): void {
-    // TODO: test dedupe & partial ordering.
     switch (message.type) {
       case "delete":
         for (const pos of message.poss) {
@@ -150,7 +149,6 @@ export class TextCrdt {
         this.text.set(message.startPos, message.chars);
         // Add to seen even before it's deleted, to reduce sparse-array fragmentation.
         this.seen.add(message.startPos, message.chars.length);
-        // TODO: test bulk edits
 
         if (message.meta) {
           // The meta may have unblocked pending messages.
