@@ -32,6 +32,9 @@
     "access": "public"
   },
   "sideEffects": false,
+  "dependencies": {
+    "list-positions": "^2.0.0"
+  },
   "devDependencies": {
     "@istanbuljs/nyc-config-typescript": "^1.0.2",
     "@types/chai": "^4.3.4",
@@ -65,8 +68,5 @@
     "fix:format": "prettier --write .",
     "docs": "typedoc --options typedoc.json src/index.ts",
     "clean": "rm -rf build docs coverage .nyc_output"
-  },
-  "dependencies": {
-    "list-positions": "^1.0.1"
   }
 }
